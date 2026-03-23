@@ -82,12 +82,12 @@ const LEVELS=[
 
 function initGame(){score=0;lives=3;coins=0;fgc=0;level=1;gameOver=false;loadLevel(1);}
 function loadLevel(n){
-  lvlWin=false;lvlTimer=0;dying=false;dTimer=0;
+  keys={};lvlWin=false;lvlTimer=0;dying=false;dTimer=0;
   const def=LEVELS[Math.min(n,LEVELS.length)-1];
   state={camX:0,theme:def.theme,
-    player:{x:50,y:300,vx:0,vy:0,onGround:false,dir:1,ft:0,dead:false},
+    player:{x:50,y:300,vx:0,vy:0,onGround:false,dir:1,ft:0,dead:false,coyoteT:0,jumpBuf:0,jumpKeyHeld:false},
     platforms:def.platforms.map(p=>({...p})),
-    enemies:def.enemies.map(e=>({...e,vx:(e.spd||1)*(Math.random()<0.5?1:-1),alive:true,frame:0,vy:0})),
+    enemies:def.enemies.map(e=>({...e,vx:(e.spd||1),alive:true,frame:0,vy:0})),
     cdbs:def.cdbs.map(s=>({...s,alive:true,frame:0})),
     particles:[],goal:{...def.goal}};
   document.getElementById('lvlname').textContent=LVLNAMES[n-1];
@@ -490,7 +490,12 @@ function updatePlayer(){
   else if(keys['ArrowRight']||keys['d']||keys['D']){p.vx+=spd*0.35;p.dir=1;}
   else p.vx*=p.onGround?0.72:0.88;
   p.vx=Math.max(-GX,Math.min(GX,p.vx));
-  if((keys['ArrowUp']||keys['w']||keys['W']||keys[' ']||keys['z']||keys['Z'])&&p.onGround){p.vy=JUMP;p.onGround=false;}
+  const jumpHeld=(keys['ArrowUp']||keys['w']||keys['W']||keys[' ']||keys['z']||keys['Z']);
+  if(jumpHeld&&!p.jumpKeyHeld)p.jumpBuf=10;
+  p.jumpKeyHeld=jumpHeld;
+  p.jumpBuf=Math.max(0,p.jumpBuf-1);
+  if(p.onGround)p.coyoteT=8;else p.coyoteT=Math.max(0,p.coyoteT-1);
+  if(p.jumpBuf>0&&p.coyoteT>0){p.vy=JUMP;p.onGround=false;p.coyoteT=0;p.jumpBuf=0;}
   p.vy=Math.min(p.vy+GRAV,MAXFALL);p.x+=p.vx;p.y+=p.vy;
   p.onGround=false;
   for(const pl of state.platforms){
