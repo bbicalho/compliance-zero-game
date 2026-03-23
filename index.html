@@ -491,32 +491,40 @@ function spawnParts(x,y,col,n=10){
 }
 
 // ========== GAME LOGIC ==========
-function updatePlayer(){
+let lastDeathCause='';
+function updatePlayer(dt){
   const p=state.player;if(p.dead)return;
   const spd=p.onGround?2.8:2.2;
-  if(keys['ArrowLeft']||keys['a']||keys['A']){p.vx-=spd*0.35;p.dir=-1;}
-  else if(keys['ArrowRight']||keys['d']||keys['D']){p.vx+=spd*0.35;p.dir=1;}
-  else p.vx*=p.onGround?0.72:0.88;
+  if(keys['ArrowLeft']||keys['a']||keys['A']){p.vx-=spd*0.35*dt;p.dir=-1;}
+  else if(keys['ArrowRight']||keys['d']||keys['D']){p.vx+=spd*0.35*dt;p.dir=1;}
+  else p.vx*=Math.pow(p.onGround?0.72:0.88,dt);
   p.vx=Math.max(-GX,Math.min(GX,p.vx));
   const jumpHeld=(keys['ArrowUp']||keys['w']||keys['W']||keys[' ']||keys['z']||keys['Z']);
   if(jumpHeld&&!p.jumpKeyHeld)p.jumpBuf=10;
   p.jumpKeyHeld=jumpHeld;
-  p.jumpBuf=Math.max(0,p.jumpBuf-1);
-  if(p.onGround)p.coyoteT=8;else p.coyoteT=Math.max(0,p.coyoteT-1);
+  p.jumpBuf=Math.max(0,p.jumpBuf-dt);
+  if(p.onGround)p.coyoteT=8;else p.coyoteT=Math.max(0,p.coyoteT-dt);
   if(p.jumpBuf>0&&p.coyoteT>0){p.vy=JUMP;p.onGround=false;p.coyoteT=0;p.jumpBuf=0;}
-  p.vy=Math.min(p.vy+GRAV,MAXFALL);p.x+=p.vx;p.y+=p.vy;
+  p.vy=Math.min(p.vy+GRAV*dt,MAXFALL);p.x+=p.vx*dt;p.y+=p.vy*dt;
+  if(p.x<-3)p.x=-3;
   p.onGround=false;
   for(const pl of state.platforms){
     const pr=p.x+27,pb=p.y+PCH,pl2=p.x+3;
     if(pr>pl.x&&pl2<pl.x+pl.w&&pb>pl.y&&p.y<pl.y+pl.h){
-      if(p.vy>=0&&p.y<pl.y+pl.h){p.y=pl.y-PCH;p.vy=0;p.onGround=true;}
-      else if(p.vy<0){p.y=pl.y+pl.h;p.vy=0;}
-      else if(p.vx>0){p.x=pl.x-27;p.vx=0;}
-      else if(p.vx<0){p.x=pl.x+pl.w-3;p.vx=0;}
+      const overlapTop=pb-pl.y,overlapBot=pl.y+pl.h-p.y;
+      const overlapLeft=pr-pl.x,overlapRight=pl.x+pl.w-pl2;
+      const minV=Math.min(overlapTop,overlapBot),minH=Math.min(overlapLeft,overlapRight);
+      if(minV<=minH){
+        if(overlapTop<=overlapBot){p.y=pl.y-PCH;p.vy=0;p.onGround=true;}
+        else{p.y=pl.y+pl.h;p.vy=0;}
+      }else{
+        if(overlapLeft<=overlapRight){p.x=pl.x-27;p.vx=0;}
+        else{p.x=pl.x+pl.w-3;p.vx=0;}
+      }
     }
   }
   if(p.onGround&&Math.abs(p.vx)>0.5)p.ft++;
-  if(p.y>H+60){die();return;}
+  if(p.y>H+60){lastDeathCause='fall';die();return;}
   for(const e of state.enemies){
     if(!e.alive)continue;
     if(p.x+24>e.x+2&&p.x+3<e.x+26&&p.y+PCH>e.y&&p.y<e.y+ECH){
@@ -526,7 +534,7 @@ function updatePlayer(){
         posthog.capture('enemy_killed',{level:level,enemy_type:e.type});
         const m={lobista:'Lobista nocauteado! +100',cdb:'CDB destruído! +100',toga:'Toga derrubada! +100'};
         setMsg(m[e.type]||'+100');
-      }else{die();return;}
+      }else{lastDeathCause=e.type;die();return;}
     }
   }
   for(const s of state.cdbs){
@@ -542,10 +550,10 @@ function updatePlayer(){
   const maxCX=state.platforms.reduce((m,pl)=>Math.max(m,pl.x+pl.w),0)-W;
   state.camX=Math.round(Math.max(0,Math.min(maxCX,p.x-W/2+80)));
 }
-function updateEnemies(){
+function updateEnemies(dt){
   for(const e of state.enemies){
     if(!e.alive)continue;
-    e.x+=e.vx;e.frame++;let gr=false;
+    e.x+=e.vx*dt;e.frame++;let gr=false;
     for(const pl of state.platforms){
       if(e.x+26>pl.x&&e.x+2<pl.x+pl.w&&e.y+ECH>pl.y&&e.y+ECH-8<pl.y+pl.h){
         e.y=pl.y-ECH;e.vy=0;gr=true;
@@ -553,7 +561,7 @@ function updateEnemies(){
         if(e.x<=lim.l||e.x+28>=lim.r)e.vx*=-1;
       }
     }
-    if(!gr){e.vy=(e.vy||0)+GRAV;e.y+=e.vy;}
+    if(!gr){e.vy=(e.vy||0)+GRAV*dt;e.y+=e.vy*dt;}
     if(e.y>H+80)e.alive=false;
   }
 }
@@ -564,9 +572,10 @@ function die(){
   if(dying)return;dying=true;dTimer=70;
   spawnParts(state.player.x+15,state.player.y+15,'#f0c090',18);
   state.player.dead=true;
-  const m=['Seu CDB virou precatório...','A maleta do lobista te acertou!','O sigilo te engoliu!'];
-  setMsg(m[level-1]||m[0]);
-  posthog.capture('player_died',{level:level,lives_remaining:lives-1,score:score,cause:m[level-1]||m[0]});
+  const deathMsgs={lobista:'A maleta do lobista te acertou!',cdb:'O CDB fantasma te pegou!',toga:'O martelo da toga te derrubou!',fall:'Caiu no buraco negro do sigilo!'};
+  const msg=deathMsgs[lastDeathCause]||'Seu CDB virou precatório...';
+  setMsg(msg);
+  posthog.capture('player_died',{level:level,lives_remaining:lives-1,score:score,cause:msg});
 }
 function winLevel(){
   if(lvlWin)return;lvlWin=true;lvlTimer=90;
@@ -604,18 +613,18 @@ function loop(ts){
     requestAnimationFrame(loop);return;
   }
   if(dying){
-    dTimer--;updateParticles();drawAll();
+    dTimer-=dt;updateParticles();drawAll();
     if(!state.player.dead)drawPlayer(state.player,state.camX);
     if(dTimer<=0){lives--;if(lives<=0){gameOver=true;posthog.capture('game_over',{result:'defeat',level:level,score:score,cdbs:coins});}else loadLevel(level);updUI();}
     requestAnimationFrame(loop);return;
   }
   if(lvlWin){
-    lvlTimer--;updateParticles();drawAll();drawPlayer(state.player,state.camX);
+    lvlTimer-=dt;updateParticles();drawAll();drawPlayer(state.player,state.camX);
     if(lvlTimer<=0){level++;if(level>LEVELS.length){gameOver=true;posthog.capture('game_over',{result:'victory',score:score,cdbs:coins,lives:lives});}else loadLevel(level);}
     requestAnimationFrame(loop);return;
   }
   for(const s of state.cdbs)if(s.alive)s.frame++;
-  updatePlayer();updateEnemies();updateParticles();
+  updatePlayer(dt);updateEnemies(dt);updateParticles();
   drawAll();
   if(!state.player.dead)drawPlayer(state.player,state.camX);
   requestAnimationFrame(loop);
