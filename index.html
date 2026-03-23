@@ -225,8 +225,22 @@ function drawBg(cx,theme){
     // "COMPLIANCE ZERO" banner
     r(W-270,42,258,22,'#1a0808');r(W-270,42,258,3,'#8a1010');
     ctx.fillStyle='#ff3030';ctx.font='bold 9px monospace';ctx.fillText('PF — OPERAÇÃO COMPLIANCE ZERO',W-265,58);
-    // Ground
-    r(0,H-32,W,32,'#0b100a');r(0,H-32,W,4,'#182018');
+    // Ground (with pit gap 280-370)
+    r(0,H-32,280,32,'#0b100a');r(0,H-32,280,4,'#182018');
+    r(370,H-32,350,32,'#0b100a');r(370,H-32,350,4,'#182018');
+    // Pit visual
+    {const px1=280-cx*0.5|0,px2=370-cx*0.5|0,pw=px2-px1;
+    r(px1,H-32,pw,32,'#020004');
+    for(let i=0;i<pw;i+=2)r(px1+i,H-32,1,32,`rgba(255,0,0,${0.06+0.04*Math.sin(Date.now()*0.003+i*0.2)})`);
+    // Hazard stripes on edges
+    for(let j=0;j<4;j++){r(px1-4,H-32+j*8,4,4,'#ffaa00');r(px1-4,H-28+j*8,4,4,'#1a1a1a');
+    r(px2,H-32+j*8,4,4,'#1a1a1a');r(px2,H-28+j*8,4,4,'#ffaa00');}
+    // Warning sign
+    ctx.fillStyle='#ff4040';ctx.font='bold 6px monospace';ctx.fillText('⚠ PERIGO',px1+pw/2-20,H-20);
+    // Smoke particles rising from pit
+    for(let i=0;i<5;i++){const sx=px1+10+i*(pw/5),sy=H-34-Math.abs(Math.sin(Date.now()*0.002+i*1.5))*18;
+    r(sx,sy,3,3,`rgba(80,0,0,${0.3+0.2*Math.sin(Date.now()*0.003+i)})`);}
+    }
 
   }else{ // STF
     r(0,0,W,H,'#05040a');
@@ -271,12 +285,30 @@ function drawBg(cx,theme){
     const jt2=(cx*0.025|0);
     r(W-110-jt2,26,85,8,'#1a1020');r(W-96-jt2,18,55,8,'#14101a');
     ctx.fillStyle='#664488';ctx.font='5px monospace';ctx.fillText('Copa Libertadores →',W-115-jt2,40);
-    // Marble STF floor
-    r(0,H-32,W,32,'#d8d4c2');r(0,H-32,W,4,'#e0dcc8');
-    for(let i=0;i<W;i+=40)r(i,H-31,39,30,'#cdc9b5');
+    // Marble STF floor (with pit gaps: 155-225, 340-415, 515-575)
+    const stfFloors=[[0,155],[225,115],[415,100],[575,145]];
+    for(const [fx,fw] of stfFloors){r(fx,H-32,fw,32,'#d8d4c2');r(fx,H-32,fw,4,'#e0dcc8');
+    for(let i=fx;i<fx+fw;i+=40)r(i,H-31,Math.min(39,fx+fw-i),30,'#cdc9b5');}
     ctx.strokeStyle='#bcb8a4';ctx.lineWidth=1;
     for(const [ax,ay,bx2,by2] of[[180,H-30,240,H-2],[460,H-30,520,H-4],[350,H-31,380,H-3]])
       {ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx2,by2);ctx.stroke();}
+    // Pit visuals
+    const stfPits=[[155,70],[340,75],[515,60]];
+    for(const [gx,gw] of stfPits){
+      const gpx=gx-(cx*0.07|0);
+      r(gpx,H-32,gw,32,'#0a0810');
+      for(let i=0;i<gw;i+=2)r(gpx+i,H-32,1,32,`rgba(120,0,60,${0.08+0.05*Math.sin(Date.now()*0.003+i*0.3)})`);
+      // Cracked marble edges
+      for(let j=0;j<4;j++){r(gpx-3,H-32+j*8,3,4,'#b8b4a0');r(gpx+gw,H-32+j*8,3,4,'#b8b4a0');
+      r(gpx-2,H-30+j*8,2,3,'#a09888');}
+      // Darkness below
+      r(gpx+2,H-28,gw-4,24,'#030008');
+      // Ominous purple glow
+      const gl=0.15+0.1*Math.sin(Date.now()*0.002+gx*0.1);
+      r(gpx,H-34,gw,4,`rgba(100,0,180,${gl})`);
+      ctx.fillStyle=`rgba(180,80,255,${gl+0.1})`;ctx.font='bold 5px monospace';
+      ctx.fillText('SIGILO',gpx+gw/2-12,H-18);
+    }
   }
 }
 
