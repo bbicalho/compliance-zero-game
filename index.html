@@ -27,12 +27,34 @@ canvas{border:2px solid #1a1a2a;image-rendering:pixelated;display:block;}
 </div>
 <canvas id="c" width="720" height="400"></canvas>
 <div id="msg">Vorcaro prometeu 140% do CDI. Hora de cobrar!</div>
-<div id="ctrl">← → mover &nbsp;|&nbsp; ↑ / Z / ESPAÇO pular &nbsp;|&nbsp; ENTER reiniciar</div>
+<div id="ctrl">← → mover &nbsp;|&nbsp; ↑ / Z / ESPAÇO pular &nbsp;|&nbsp; ENTER reiniciar &nbsp;|&nbsp; M som <span id="sndIcon">🔊</span></div>
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 ctx.imageSmoothingEnabled=false;
 const W=720,H=400,GX=7.5,GRAV=0.42,JUMP=-11,MAXFALL=11;
 const PCH=44,ECH=36;
+
+// ========== SOUND ENGINE (Web Audio API — retro 8-bit) ==========
+let audioCtx=null,soundOn=true;
+function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();}
+function playTone(freq,dur,type='square',vol=0.12,slide=0){
+  if(!soundOn||!audioCtx)return;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,audioCtx.currentTime);
+  if(slide)o.frequency.linearRampToValueAtTime(freq+slide,audioCtx.currentTime+dur);
+  g.gain.setValueAtTime(vol,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+  o.connect(g);g.connect(audioCtx.destination);
+  o.start();o.stop(audioCtx.currentTime+dur);
+}
+function sfxJump(){playTone(260,0.12,'square',0.1,400);}
+function sfxCoin(){playTone(780,0.06,'square',0.1);setTimeout(()=>playTone(1050,0.1,'square',0.1),60);}
+function sfxStomp(){playTone(200,0.15,'sawtooth',0.12,-120);setTimeout(()=>playTone(90,0.1,'square',0.08),50);}
+function sfxDie(){playTone(400,0.12,'square',0.1,-200);setTimeout(()=>playTone(200,0.15,'sawtooth',0.1,-150),120);setTimeout(()=>playTone(80,0.25,'triangle',0.08),250);}
+function sfxWin(){const ns=[523,659,784,1047];ns.forEach((f,i)=>setTimeout(()=>playTone(f,0.15,'square',0.1),i*100));setTimeout(()=>playTone(1047,0.3,'triangle',0.08),400);}
+function sfxGameOver(){const ns=[300,250,200,150];ns.forEach((f,i)=>setTimeout(()=>playTone(f,0.2,'sawtooth',0.1),i*180));setTimeout(()=>playTone(80,0.5,'triangle',0.06),750);}
+function sfxVictory(){const ns=[523,659,784,1047,1318,1568];ns.forEach((f,i)=>setTimeout(()=>playTone(f,0.12,'square',0.1),i*80));setTimeout(()=>playTone(1568,0.4,'triangle',0.1),500);}
+function toggleSound(){soundOn=!soundOn;document.getElementById('sndIcon').textContent=soundOn?'🔊':'🔇';}
 
 let state,keys={},score,lives,coins,fgc,level,dying,dTimer,lvlWin,lvlTimer,gameOver;
 
@@ -536,7 +558,7 @@ function updatePlayer(dt){
   p.jumpKeyHeld=jumpHeld;
   p.jumpBuf=Math.max(0,p.jumpBuf-dt);
   if(p.onGround)p.coyoteT=8;else p.coyoteT=Math.max(0,p.coyoteT-dt);
-  if(p.jumpBuf>0&&p.coyoteT>0){p.vy=JUMP;p.onGround=false;p.coyoteT=0;p.jumpBuf=0;}
+  if(p.jumpBuf>0&&p.coyoteT>0){p.vy=JUMP;p.onGround=false;p.coyoteT=0;p.jumpBuf=0;sfxJump();}
   p.vy=Math.min(p.vy+GRAV*dt,MAXFALL);p.x+=p.vx*dt;p.y+=p.vy*dt;
   if(p.x<-3)p.x=-3;
   p.onGround=false;
@@ -562,7 +584,7 @@ function updatePlayer(dt){
     if(p.x+24>e.x+2&&p.x+3<e.x+26&&p.y+PCH>e.y&&p.y<e.y+ECH){
       if(p.vy>0&&p.y+PCH-14<e.y+ECH*0.38){
         e.alive=false;spawnParts(e.x+14,e.y+10,'#ff8040',14);
-        p.vy=-8;score+=100;fgc=Math.min(fgc+1,41);updUI();
+        p.vy=-8;score+=100;fgc=Math.min(fgc+1,41);updUI();sfxStomp();
         posthog.capture('enemy_killed',{level:level,enemy_type:e.type});
         const m={lobista:'Lobista nocauteado! +100',cdb:'CDB destruído! +100',toga:'Toga derrubada! +100'};
         setMsg(m[e.type]||'+100');
@@ -573,7 +595,7 @@ function updatePlayer(dt){
     if(!s.alive)continue;
     if(p.x+22>s.x&&p.x+3<s.x+22&&p.y+PCH>s.y&&p.y<s.y+20){
       s.alive=false;coins++;score+=50;fgc=Math.min(fgc+1,41);
-      spawnParts(s.x+10,s.y+8,'#2aff2a',8);updUI();
+      spawnParts(s.x+10,s.y+8,'#2aff2a',8);updUI();sfxCoin();
       posthog.capture('cdb_collected',{level:level,total_cdbs:coins});
     }
   }
@@ -603,7 +625,7 @@ function updateParticles(){
 function die(){
   if(dying)return;dying=true;dTimer=70;
   spawnParts(state.player.x+15,state.player.y+15,'#f0c090',18);
-  state.player.dead=true;
+  state.player.dead=true;sfxDie();
   const deathMsgs={lobista:'A maleta do lobista te acertou!',cdb:'O CDB fantasma te pegou!',toga:'O martelo da toga te derrubou!',fall:'Caiu no buraco negro do sigilo!'};
   const msg=deathMsgs[lastDeathCause]||'Seu CDB virou precatório...';
   setMsg(msg);
@@ -611,7 +633,7 @@ function die(){
 }
 function winLevel(){
   if(lvlWin)return;lvlWin=true;lvlTimer=90;
-  score+=500;fgc=Math.min(fgc+3,41);updUI();
+  score+=500;fgc=Math.min(fgc+3,41);updUI();sfxWin();
   setMsg(WINMSGS[level-1]||'FASE CONCLUÍDA!');
   posthog.capture('level_completed',{level:level,level_name:LVLNAMES[level-1],score:score,cdbs:coins,lives:lives});
 }
@@ -647,12 +669,12 @@ function loop(ts){
   if(dying){
     dTimer-=dt;updateParticles();drawAll();
     if(!state.player.dead)drawPlayer(state.player,state.camX);
-    if(dTimer<=0){lives--;if(lives<=0){gameOver=true;posthog.capture('game_over',{result:'defeat',level:level,score:score,cdbs:coins});}else loadLevel(level);updUI();}
+    if(dTimer<=0){lives--;if(lives<=0){gameOver=true;sfxGameOver();posthog.capture('game_over',{result:'defeat',level:level,score:score,cdbs:coins});}else loadLevel(level);updUI();}
     requestAnimationFrame(loop);return;
   }
   if(lvlWin){
     lvlTimer-=dt;updateParticles();drawAll();drawPlayer(state.player,state.camX);
-    if(lvlTimer<=0){level++;if(level>LEVELS.length){gameOver=true;posthog.capture('game_over',{result:'victory',score:score,cdbs:coins,lives:lives});}else loadLevel(level);}
+    if(lvlTimer<=0){level++;if(level>LEVELS.length){gameOver=true;sfxVictory();posthog.capture('game_over',{result:'victory',score:score,cdbs:coins,lives:lives});}else loadLevel(level);}
     requestAnimationFrame(loop);return;
   }
   for(const s of state.cdbs)if(s.alive)s.frame++;
@@ -662,8 +684,10 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 document.addEventListener('keydown',e=>{
+  initAudio();
   keys[e.key]=true;
   if(e.key==='Enter'&&gameOver)initGame();
+  if(e.key==='m'||e.key==='M')toggleSound();
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
 });
 document.addEventListener('keyup',e=>keys[e.key]=false);
