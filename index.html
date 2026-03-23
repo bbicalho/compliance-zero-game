@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8">
+<script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group identify setPersonProperties setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags resetGroups onFeatureFlags addFeatureFlagsHandler onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_rShT1Nmxb5poZIksoOgycVNe4gONkqpfbNYTCFF5X99', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2026-01-30'
+    })
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#050510;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;}
@@ -80,7 +87,7 @@ const LEVELS=[
   goal:{x:648,y:135}}
 ];
 
-function initGame(){score=0;lives=3;coins=0;fgc=0;level=1;gameOver=false;loadLevel(1);}
+function initGame(){score=0;lives=3;coins=0;fgc=0;level=1;gameOver=false;loadLevel(1);posthog.capture('game_started');}
 function loadLevel(n){
   keys={};lvlWin=false;lvlTimer=0;dying=false;dTimer=0;
   const def=LEVELS[Math.min(n,LEVELS.length)-1];
@@ -92,6 +99,7 @@ function loadLevel(n){
     particles:[],goal:{...def.goal}};
   document.getElementById('lvlname').textContent=LVLNAMES[n-1];
   setMsg(LVLMSGS[n-1]);updUI();
+  posthog.capture('level_started',{level:n,level_name:LVLNAMES[n-1],lives:lives,score:score});
 }
 function setMsg(t){document.getElementById('msg').textContent=t;}
 function updUI(){
@@ -515,6 +523,7 @@ function updatePlayer(){
       if(p.vy>0&&p.y+PCH-14<e.y+ECH*0.38){
         e.alive=false;spawnParts(e.x+14,e.y+10,'#ff8040',14);
         p.vy=-8;score+=100;fgc=Math.min(fgc+1,41);updUI();
+        posthog.capture('enemy_killed',{level:level,enemy_type:e.type});
         const m={lobista:'Lobista nocauteado! +100',cdb:'CDB destruído! +100',toga:'Toga derrubada! +100'};
         setMsg(m[e.type]||'+100');
       }else{die();return;}
@@ -525,6 +534,7 @@ function updatePlayer(){
     if(p.x+22>s.x&&p.x+3<s.x+22&&p.y+PCH>s.y&&p.y<s.y+20){
       s.alive=false;coins++;score+=50;fgc=Math.min(fgc+1,41);
       spawnParts(s.x+10,s.y+8,'#2aff2a',8);updUI();
+      posthog.capture('cdb_collected',{level:level,total_cdbs:coins});
     }
   }
   const g=state.goal;
@@ -556,11 +566,13 @@ function die(){
   state.player.dead=true;
   const m=['Seu CDB virou precatório...','A maleta do lobista te acertou!','O sigilo te engoliu!'];
   setMsg(m[level-1]||m[0]);
+  posthog.capture('player_died',{level:level,lives_remaining:lives-1,score:score,cause:m[level-1]||m[0]});
 }
 function winLevel(){
   if(lvlWin)return;lvlWin=true;lvlTimer=90;
   score+=500;fgc=Math.min(fgc+3,41);updUI();
   setMsg(WINMSGS[level-1]||'FASE CONCLUÍDA!');
+  posthog.capture('level_completed',{level:level,level_name:LVLNAMES[level-1],score:score,cdbs:coins,lives:lives});
 }
 
 function drawAll(){
@@ -594,12 +606,12 @@ function loop(ts){
   if(dying){
     dTimer--;updateParticles();drawAll();
     if(!state.player.dead)drawPlayer(state.player,state.camX);
-    if(dTimer<=0){lives--;if(lives<=0)gameOver=true;else loadLevel(level);updUI();}
+    if(dTimer<=0){lives--;if(lives<=0){gameOver=true;posthog.capture('game_over',{result:'defeat',level:level,score:score,cdbs:coins});}else loadLevel(level);updUI();}
     requestAnimationFrame(loop);return;
   }
   if(lvlWin){
     lvlTimer--;updateParticles();drawAll();drawPlayer(state.player,state.camX);
-    if(lvlTimer<=0){level++;if(level>LEVELS.length)gameOver=true;else loadLevel(level);}
+    if(lvlTimer<=0){level++;if(level>LEVELS.length){gameOver=true;posthog.capture('game_over',{result:'victory',score:score,cdbs:coins,lives:lives});}else loadLevel(level);}
     requestAnimationFrame(loop);return;
   }
   for(const s of state.cdbs)if(s.alive)s.frame++;
