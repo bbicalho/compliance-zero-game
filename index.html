@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <script>
     !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group identify setPersonProperties setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags resetGroups onFeatureFlags addFeatureFlagsHandler onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
     posthog.init('phc_rShT1Nmxb5poZIksoOgycVNe4gONkqpfbNYTCFF5X99', {
@@ -9,15 +10,40 @@
 </script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#050510;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;}
-#hud{color:#aaa;font-size:11px;display:flex;gap:18px;margin-bottom:4px;width:720px;padding:3px 10px;background:#0d0d0d;border:1px solid #1a1a1a;align-items:center;}
+body{background:#050510;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;overflow:hidden;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+#gameWrap{position:relative;width:720px;max-width:100vw;}
+#hud{color:#aaa;font-size:11px;display:flex;gap:18px;margin-bottom:4px;width:100%;padding:3px 10px;background:#0d0d0d;border:1px solid #1a1a1a;align-items:center;}
 #hud b{color:#ffd700;}
 #lvlname{color:#ff9900;font-size:11px;margin-left:auto;font-weight:bold;letter-spacing:1px;}
-canvas{border:2px solid #1a1a2a;image-rendering:pixelated;display:block;}
-#msg{color:#ffd700;font-size:12px;margin-top:5px;letter-spacing:1px;min-height:18px;text-align:center;max-width:720px;}
+canvas{border:2px solid #1a1a2a;image-rendering:pixelated;display:block;width:100%;}
+#msg{color:#ffd700;font-size:12px;margin-top:5px;letter-spacing:1px;min-height:18px;text-align:center;width:100%;}
 #ctrl{color:#333;font-size:10px;margin-top:4px;letter-spacing:1px;}
+/* Touch controls */
+#touchUI{display:none;position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+#touchUI .tbtn{position:absolute;pointer-events:auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:bold;font-family:monospace;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.15);transition:background 0.1s;}
+#touchUI .tbtn.active{background:rgba(255,255,255,0.22);border-color:rgba(255,255,255,0.35);}
+#tLeft{width:56px;height:56px;bottom:8%;left:3%;}
+#tRight{width:56px;height:56px;bottom:8%;left:calc(3% + 64px);}
+#tJump{width:66px;height:66px;bottom:8%;right:3%;}
+#tMute{width:36px;height:36px;top:3%;right:3%;font-size:16px;}
+#tRestart{width:36px;height:36px;top:3%;right:calc(3% + 42px);font-size:14px;}
+.touch #ctrl{display:none;}
+.touch #msg{font-size:10px;}
+.touch #hud{font-size:10px;gap:8px;padding:2px 6px;}
+@media(max-width:768px){
+  body{justify-content:flex-start;padding-top:4px;}
+  #gameWrap{max-width:100vw;max-height:100vh;}
+}
+@media(orientation:portrait) and (max-width:768px){
+  #rotateMsg{display:flex !important;}
+  #gameWrap{display:none !important;}
+}
+#rotateMsg{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#050510;color:#ffd700;font-family:monospace;font-size:16px;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:999;text-align:center;padding:20px;}
+#rotateMsg span{font-size:40px;}
 </style></head>
 <body>
+<div id="rotateMsg"><span>📱</span>Gire o celular para<br><b>paisagem (horizontal)</b><br>para jogar!</div>
+<div id="gameWrap">
 <div id="hud">
   <div>VIDAS: <b id="hLives">3</b></div>
   <div>CDBs: <b id="hCoins">0</b></div>
@@ -25,9 +51,19 @@ canvas{border:2px solid #1a1a2a;image-rendering:pixelated;display:block;}
   <div>FGC: <b id="hFgc">R$0bi</b></div>
   <span id="lvlname">FASE 1</span>
 </div>
+<div style="position:relative;">
 <canvas id="c" width="720" height="400"></canvas>
+<div id="touchUI">
+  <div id="tLeft" class="tbtn">◀</div>
+  <div id="tRight" class="tbtn">▶</div>
+  <div id="tJump" class="tbtn">▲</div>
+  <div id="tMute" class="tbtn"><span id="sndIcon2">🔊</span></div>
+  <div id="tRestart" class="tbtn">↺</div>
+</div>
+</div>
 <div id="msg">Vorcaro prometeu 140% do CDI. Hora de cobrar!</div>
 <div id="ctrl">← → mover &nbsp;|&nbsp; ↑ / Z / ESPAÇO pular &nbsp;|&nbsp; ENTER reiniciar &nbsp;|&nbsp; M som <span id="sndIcon">🔊</span></div>
+</div>
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 ctx.imageSmoothingEnabled=false;
@@ -54,8 +90,9 @@ function sfxDie(){playTone(400,0.12,'square',0.1,-200);setTimeout(()=>playTone(2
 function sfxWin(){const ns=[523,659,784,1047];ns.forEach((f,i)=>setTimeout(()=>playTone(f,0.15,'square',0.1),i*100));setTimeout(()=>playTone(1047,0.3,'triangle',0.08),400);}
 function sfxGameOver(){const ns=[300,250,200,150];ns.forEach((f,i)=>setTimeout(()=>playTone(f,0.2,'sawtooth',0.1),i*180));setTimeout(()=>playTone(80,0.5,'triangle',0.06),750);}
 function sfxVictory(){const ns=[523,659,784,1047,1318,1568];ns.forEach((f,i)=>setTimeout(()=>playTone(f,0.12,'square',0.1),i*80));setTimeout(()=>playTone(1568,0.4,'triangle',0.1),500);}
-function toggleSound(){soundOn=!soundOn;document.getElementById('sndIcon').textContent=soundOn?'🔊':'🔇';}
-
+function toggleSound(){soundOn=!soundOn;document.getElementById('sndIcon').textContent=soundOn?'🔊':'🔇';
+const s2=document.getElementById('sndIcon2');if(s2)s2.textContent=soundOn?'🔊':'🔇';}
+const isTouchDevice='ontouchstart'in window||navigator.maxTouchPoints>0;
 let state,keys={},score,lives,coins,fgc,level,dying,dTimer,lvlWin,lvlTimer,gameOver;
 
 const LVLNAMES=['SEDE DO MASTER — SÃO PAULO','AEROPORTO DE GUARULHOS','STF — BRASÍLIA'];
@@ -691,5 +728,57 @@ document.addEventListener('keydown',e=>{
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
 });
 document.addEventListener('keyup',e=>keys[e.key]=false);
+
+// ========== TOUCH CONTROLS ==========
+if(isTouchDevice){
+  document.body.classList.add('touch');
+  document.getElementById('touchUI').style.display='block';
+  const tBtns={tLeft:'ArrowLeft',tRight:'ArrowRight',tJump:' '};
+  const activeT=new Map();
+  function updTouchBtn(id,on){
+    const el=document.getElementById(id);
+    if(on)el.classList.add('active');else el.classList.remove('active');
+  }
+  function handleTouches(e){
+    e.preventDefault();initAudio();
+    const newActive=new Set();
+    for(const t of e.touches){
+      const el=document.elementFromPoint(t.clientX,t.clientY);
+      if(!el)continue;
+      const id=el.id||el.parentElement?.id;
+      if(tBtns[id]){newActive.add(id);activeT.set(t.identifier,id);}
+      else if(id==='tMute'&&!activeT.has('mute_'+t.identifier)){activeT.set('mute_'+t.identifier,true);}
+      else if(id==='tRestart'&&!activeT.has('restart_'+t.identifier)){activeT.set('restart_'+t.identifier,true);}
+    }
+    for(const [id,key] of Object.entries(tBtns)){
+      keys[key]=newActive.has(id);
+      updTouchBtn(id,newActive.has(id));
+    }
+  }
+  function handleTouchEnd(e){
+    e.preventDefault();
+    const remaining=new Set();
+    for(const t of e.touches){
+      const id=activeT.get(t.identifier);
+      if(id&&tBtns[id])remaining.add(id);
+    }
+    for(const [id,key] of Object.entries(tBtns)){
+      keys[key]=remaining.has(id);
+      updTouchBtn(id,remaining.has(id));
+    }
+    // Check if mute or restart button was released
+    for(const t of e.changedTouches){
+      const el=document.elementFromPoint(t.clientX,t.clientY);
+      const id=el?.id||el?.parentElement?.id;
+      if(id==='tMute')toggleSound();
+      if(id==='tRestart'&&gameOver)initGame();
+    }
+  }
+  document.getElementById('touchUI').addEventListener('touchstart',handleTouches,{passive:false});
+  document.getElementById('touchUI').addEventListener('touchmove',handleTouches,{passive:false});
+  document.getElementById('touchUI').addEventListener('touchend',handleTouchEnd,{passive:false});
+  document.getElementById('touchUI').addEventListener('touchcancel',handleTouchEnd,{passive:false});
+}
+
 initGame();requestAnimationFrame(loop);
 </script></body></html>
