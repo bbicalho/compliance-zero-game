@@ -34,8 +34,8 @@ canvas{border:2px solid #1a1a2a;image-rendering:pixelated;display:block;width:10
 .touch #ctrl{display:none;}
 .touch #msg{display:none;}
 .touch #hud{font-size:9px;gap:6px;padding:1px 6px;margin-bottom:1px;}
-.touch #gameWrap{display:flex;flex-direction:column;align-items:center;max-height:100vh;max-height:100dvh;}
-.touch canvas{max-height:calc(100dvh - 20px);width:auto;max-width:100vw;}
+.touch #gameWrap{display:flex;flex-direction:column;align-items:center;}
+.touch canvas{width:auto;max-width:100vw;}
 @media(max-width:768px){
   body{justify-content:flex-start;padding-top:0;}
 }
@@ -786,8 +786,23 @@ if(isTouchDevice){
   document.getElementById('touchUI').addEventListener('touchend',handleTouchEnd,{passive:false});
   document.getElementById('touchUI').addEventListener('touchcancel',handleTouchEnd,{passive:false});
 }
-// iOS Safari: scroll to hide address bar + PWA hint
+// Mobile: resize canvas to fit actual available height
 if(isTouchDevice){
+  function resizeGame(){
+    const h=window.innerHeight;
+    const hudH=document.getElementById('hud').offsetHeight||18;
+    const availH=h-hudH-2;
+    const canvasRatio=720/400;
+    let cw=availH*canvasRatio;
+    let ch=availH;
+    if(cw>window.innerWidth){cw=window.innerWidth;ch=cw/canvasRatio;}
+    cv.style.width=Math.floor(cw)+'px';
+    cv.style.height=Math.floor(ch)+'px';
+  }
+  resizeGame();
+  window.addEventListener('resize',resizeGame);
+  screen.orientation?.addEventListener('change',resizeGame);
+  // iOS Safari: PWA hint
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
   const isStandalone=window.navigator.standalone===true||window.matchMedia('(display-mode:standalone)').matches;
   if(isIOS&&!isStandalone){
@@ -796,7 +811,6 @@ if(isTouchDevice){
     hint.style.display='block';
     setTimeout(()=>{hint.style.display='none';},8000);
   }
-  // Try to minimize Safari chrome
   window.scrollTo(0,1);
   document.addEventListener('touchstart',()=>window.scrollTo(0,1),{once:true});
 }
